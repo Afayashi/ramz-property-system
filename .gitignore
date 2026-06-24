@@ -1,0 +1,41 @@
+# Local tooling and package caches
+.tools/
+node_modules/
+
+# Cloudflare local state
+.wrangler/
+cloudflare-pages-deploy/.wrangler/
+ramz-taqnyat-api/.wrangler/
+
+# Secrets and local environment files
+.env
+.env.*
+.dev.vars
+*.local
+secrets.*
+
+# Runtime logs
+*.log
+*.out.log
+*.err.log
+
+# Generated and temporary output
+tmp/
+artifacts/
+output/
+outputs/
+work/
+*.zip
+
+# Test screenshots and browser traces
+tests/*.png
+tests/*.webm
+tests/*.trace
+playwright-report/
+test-results/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

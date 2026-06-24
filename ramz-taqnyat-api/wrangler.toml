@@ -1,0 +1,25 @@
+name = "ramz-taqnyat-api"
+main = "src/worker.js"
+compatibility_date = "2026-06-16"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ramz-property-api"
+database_id = "ac1b5d04-678d-4a6d-89c3-fa3676d5f557"
+migrations_dir = "migrations"
+
+[vars]
+ALLOWED_ORIGINS = "https://ramz-property-system.pages.dev"
+JWT_TTL_SECONDS = "43200"
+TAQNYAT_SENDER = "RAMZABDE"
+
+# R2 is intentionally optional until R2 is enabled on the account.
+# After enabling R2, create ramz-property-images and uncomment:
+# [[r2_buckets]]
+# binding = "PROPERTY_IMAGES"
+# bucket_name = "ramz-property-images"
+
