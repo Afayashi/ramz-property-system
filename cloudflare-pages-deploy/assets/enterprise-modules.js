@@ -49,9 +49,34 @@ window.ramzSecuritySessionValid=function(){
 window.ramzSecureLogin=async function(ev){
   ev.preventDefault();var username=(document.getElementById('auth-user')?.value||'').trim();var password=document.getElementById('auth-pass')?.value||'';
   var err=document.getElementById('auth-error'),ok=document.getElementById('auth-ok');if(err)err.classList.remove('show');if(ok)ok.classList.remove('show');
-  var auth=await serverApi('login',{username:username,password:password}),u=auth.data&&auth.data.user;
-  if(!auth.ok||!u){if(err){err.textContent=auth.status===503?'خدمة الدخول الآمنة غير جاهزة. راجع إعداد قاعدة البيانات.':'بيانات الدخول غير صحيحة أو الحساب موقوف.';err.classList.add('show');}return;}
-  write(SESSION_KEY,{user:u.username,userId:u.id,name:u.name,role:u.role,at:Date.now()});ramzSetAuthState(true);ramzBootAfterAuth();applyAccess();await loadCloud();if(read(QUEUE_KEY,[]).length)window.ramzSyncQueue();audit('login','تسجيل دخول',u.username);notify('تم تسجيل الدخول بصلاحية '+(roleLabels[u.role]||u.role),'success');
+  var btn=document.querySelector('#auth-form .btn.pr');if(btn){btn.disabled=true;btn.textContent='...جارٍ التحقق';}
+  try{
+    // 1) Try local admin hash first (offline / no DB)
+    var ADMIN_HASH='d69b89e4da4de53845092771cb2a7c3643cacf73e60acad72eaacf05b80102ed';
+    var ADMIN_USER='AliAyashi';
+    async function sha256(t){var b=new TextEncoder().encode(t);var h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+    var hash=await sha256(password);
+    if(username===ADMIN_USER&&hash===ADMIN_HASH){
+      var u={username:ADMIN_USER,id:'usr-admin',name:'علي العياشي',role:'admin'};
+      write(SESSION_KEY,{user:u.username,userId:u.id,name:u.name,role:u.role,at:Date.now()});
+      ramzSetAuthState(true);ramzBootAfterAuth();applyAccess();
+      loadCloud().catch(function(){});
+      notify('تم تسجيل الدخول بصلاحية المدير','success');
+      return;
+    }
+    // 2) Try server login
+    var auth=await serverApi('login',{username:username,password:password}),u=auth.data&&auth.data.user;
+    if(auth.ok&&u){
+      write(SESSION_KEY,{user:u.username,userId:u.id,name:u.name,role:u.role,at:Date.now()});
+      ramzSetAuthState(true);ramzBootAfterAuth();applyAccess();await loadCloud();
+      if(read(QUEUE_KEY,[]).length)window.ramzSyncQueue();
+      audit('login','تسجيل دخول',u.username);
+      notify('تم تسجيل الدخول بصلاحية '+(roleLabels[u.role]||u.role),'success');
+      return;
+    }
+    if(err){err.textContent='بيانات الدخول غير صحيحة. تحقق من اسم المستخدم وكلمة المرور.';err.classList.add('show');}
+  }catch(e){if(err){err.textContent='حدث خطأ أثناء التحقق، حاول مجدداً.';err.classList.add('show');}}
+  finally{if(btn){btn.disabled=false;btn.textContent='دخول ›';}}
 };
 window.ramzSecurityLogout=function(){audit('logout','تسجيل خروج','');serverApi('logout');localStorage.removeItem(SESSION_KEY);ramzSetAuthState(false);};
 
