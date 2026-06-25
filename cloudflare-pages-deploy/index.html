@@ -10172,7 +10172,229 @@ document.getElementById('auth-form')?.addEventListener('submit', ramzHandleLogin
 document.addEventListener('DOMContentLoaded', function() { ramzSetAuthState(ramzSessionValid()); ramzBootAfterAuth(); });
 ramzSetAuthState(ramzSessionValid());
 
-// ─── SMS فردي ───────────────────────────────────────
+// ─── موديال رسالة SMS فردية (يظهر من أي صفحة) ──────
+(function(){
+  // أضف الموديال للـ DOM عند التحميل
+  function injectSmsModal() {
+    if (document.getElementById('m-sms-single')) return;
+    var modal = document.createElement('div');
+    modal.className = 'overlay';
+    modal.id = 'm-sms-single';
+    modal.setAttribute('onclick', "if(event.target===this)closeM('m-sms-single')");
+    modal.innerHTML = [
+      '<div class="modal" style="width:min(600px,calc(100vw - 24px))">',
+        '<div class="mh"><h3>📩 إرسال رسالة SMS فردية</h3><button class="mc" onclick="closeM(\'m-sms-single\')">✕</button></div>',
+        '<div class="mb" style="display:flex;flex-direction:column;gap:12px">',
+
+          // المستلم
+          '<div class="fg">',
+            '<label class="fl">اختر مستأجراً (اختياري)</label>',
+            '<select class="fi" id="ms1-sel" onchange="ramzMs1Fill()">',
+              '<option value="">-- اختر لملء الرقم تلقائياً --</option>',
+            '</select>',
+          '</div>',
+
+          // الجوال والاسم
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">',
+            '<div class="fg"><label class="fl">رقم الجوال <span style="color:var(--rd)">*</span></label>',
+              '<input class="fi" id="ms1-phone" dir="ltr" placeholder="05xxxxxxxx" inputmode="tel"></div>',
+            '<div class="fg"><label class="fl">الاسم (للمتغيرات)</label>',
+              '<input class="fi" id="ms1-name" placeholder="أحمد" oninput="ramzMs1Prev()"></div>',
+          '</div>',
+
+          // القالب السريع
+          '<div class="fg"><label class="fl">قالب سريع</label>',
+            '<select class="fi" id="ms1-tpl" onchange="ramzMs1Tpl()">',
+              '<option value="">-- اكتب يدوياً أو اختر قالباً --</option>',
+              '<option value="عزيزي {name}، نود تذكيرك بأن دفعة الإيجار المستحقة لم تُسدَّد بعد. يرجى التواصل معنا. شركة رمز الإبداع">📋 تذكير دفعة إيجار</option>',
+              '<option value="عزيزي {name}، يسعدنا إشعارك بأن عقد إيجارك سينتهي قريباً. للتجديد تواصل معنا. شركة رمز الإبداع">📅 تنبيه انتهاء العقد</option>',
+              '<option value="عزيزي {name}، تم استلام طلب الصيانة وسنتواصل معك لتحديد موعد. شركة رمز الإبداع">🔧 تأكيد طلب صيانة</option>',
+              '<option value="عزيزي {name}، تم استلام دفعتك بنجاح. شكراً لالتزامك. شركة رمز الإبداع">✅ تأكيد استلام دفعة</option>',
+              '<option value="عزيزي {name}، مرحباً بك في منظومة رمز الإبداع لإدارة الأملاك. شركة رمز الإبداع">👋 ترحيب بمستأجر جديد</option>',
+            '</select>',
+          '</div>',
+
+          // نص الرسالة
+          '<div class="fg">',
+            '<div style="display:flex;justify-content:space-between;margin-bottom:4px">',
+              '<label class="fl" style="margin:0">نص الرسالة <span style="color:var(--rd)">*</span></label>',
+              '<span id="ms1-cnt" style="font-size:11px;color:var(--t3)">0 / 160</span>',
+            '</div>',
+            '<textarea class="fi" id="ms1-body" rows="4" placeholder="اكتب نص الرسالة... يمكنك استخدام {name} لاسم المستلم" oninput="ramzMs1Cnt();ramzMs1Prev()" style="resize:vertical"></textarea>',
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">',
+              '<button class="btn sm" onclick="ramzMs1Ins(\'{name}\')">+الاسم</button>',
+              '<button class="btn sm" onclick="ramzMs1Ins(\'رمز الإبداع\')">+الشركة</button>',
+              '<button class="btn sm" onclick="ramzMs1Ins(new Date().toLocaleDateString(\'ar-SA\'))">+التاريخ</button>',
+              '<button class="btn sm rd" onclick="var b=document.getElementById(\'ms1-body\');b.value=\'\';ramzMs1Cnt();ramzMs1Prev()">مسح</button>',
+            '</div>',
+          '</div>',
+
+          // معاينة
+          '<div style="background:#e8fbe8;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.8;min-height:60px;color:#1a3a1a;white-space:pre-wrap;border:1px solid #c3e6c3" id="ms1-prev">اكتب نص الرسالة للمعاينة...</div>',
+
+          // نتيجة
+          '<div id="ms1-res" style="display:none"></div>',
+        '</div>',
+        '<div class="mf">',
+          '<button class="btn pr" id="ms1-btn" onclick="ramzMs1Send()" style="min-width:140px">📤 إرسال الرسالة</button>',
+          '<button class="btn" onclick="closeM(\'m-sms-single\')">إلغاء</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(modal);
+  }
+
+  // ملء المستأجر
+  window.ramzMs1Fill = function() {
+    var sel = document.getElementById('ms1-sel');
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+    if (opt.dataset.phone) document.getElementById('ms1-phone').value = opt.dataset.phone;
+    if (opt.dataset.name)  document.getElementById('ms1-name').value  = opt.dataset.name;
+    ramzMs1Cnt(); ramzMs1Prev();
+  };
+
+  // قالب سريع
+  window.ramzMs1Tpl = function() {
+    var sel = document.getElementById('ms1-tpl');
+    var body = document.getElementById('ms1-body');
+    if (sel.value) { body.value = sel.value; ramzMs1Cnt(); ramzMs1Prev(); }
+  };
+
+  // عداد
+  window.ramzMs1Cnt = function() {
+    var b = document.getElementById('ms1-body');
+    var c = document.getElementById('ms1-cnt');
+    if (!b || !c) return;
+    var len = b.value.length;
+    c.textContent = len + ' / 160';
+    c.style.color = len > 160 ? 'var(--rd)' : 'var(--t3)';
+  };
+
+  // إدراج
+  window.ramzMs1Ins = function(t) {
+    var el = document.getElementById('ms1-body');
+    if (!el) return;
+    var s = el.selectionStart, e = el.selectionEnd;
+    el.value = el.value.slice(0,s) + t + el.value.slice(e);
+    el.selectionStart = el.selectionEnd = s + t.length;
+    el.focus(); ramzMs1Cnt(); ramzMs1Prev();
+  };
+
+  // معاينة
+  window.ramzMs1Prev = function() {
+    var body = document.getElementById('ms1-body');
+    var name = (document.getElementById('ms1-name')?.value || '').trim();
+    var prev = document.getElementById('ms1-prev');
+    if (!body || !prev) return;
+    var txt = (body.value || '').replace(/\{name\}/g, name || 'العميل');
+    prev.textContent = txt || 'اكتب نص الرسالة للمعاينة...';
+  };
+
+  // فتح الموديال
+  window.ramzOpenSmsSingle = function(phone, name) {
+    injectSmsModal();
+    // ملء قائمة المستأجرين
+    var sel = document.getElementById('ms1-sel');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- اختر لملء الرقم تلقائياً --</option>';
+      var tenants = (window.data && window.data.tenants) || [];
+      tenants.forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t.id || '';
+        opt.textContent = (t.name || t.full_name || '—') + (t.phone ? ' · ' + t.phone : '');
+        opt.dataset.phone = t.phone || t.mobile || '';
+        opt.dataset.name  = t.name  || t.full_name || '';
+        sel.appendChild(opt);
+      });
+    }
+    // ملء تلقائي إذا جاءت بيانات
+    if (phone) { var p = document.getElementById('ms1-phone'); if(p) p.value = phone; }
+    if (name)  { var n = document.getElementById('ms1-name');  if(n) n.value = name; }
+    // مسح الحقول
+    var body = document.getElementById('ms1-body'); if(body) body.value='';
+    var tpl  = document.getElementById('ms1-tpl');  if(tpl)  tpl.value='';
+    var res  = document.getElementById('ms1-res');  if(res)  res.style.display='none';
+    ramzMs1Cnt(); ramzMs1Prev();
+    // فتح
+    var m = document.getElementById('m-sms-single');
+    if (m) { m.style.display='flex'; document.body.style.overflow='hidden'; }
+    setTimeout(function(){ var p=document.getElementById('ms1-phone'); if(p&&!p.value)p.focus(); },100);
+  };
+
+  // إرسال
+  window.ramzMs1Send = async function() {
+    var phone  = (document.getElementById('ms1-phone')?.value||'').trim().replace(/\s/g,'');
+    var name   = (document.getElementById('ms1-name')?.value||'').trim();
+    var body   = (document.getElementById('ms1-body')?.value||'').trim();
+    var btn    = document.getElementById('ms1-btn');
+    var res    = document.getElementById('ms1-res');
+
+    if (!phone) { if(typeof notify==='function') notify('أدخل رقم الجوال','warning'); return; }
+    if (!body)  { if(typeof notify==='function') notify('أدخل نص الرسالة','warning'); return; }
+
+    var mobile = phone.replace(/^0/,'966').replace(/^\+/,'');
+    if (!/^966[5][0-9]{8}$/.test(mobile)) {
+      if(typeof notify==='function') notify('رقم الجوال غير صحيح — يجب أن يبدأ بـ 05 أو 966','warning'); return;
+    }
+    var text = body.replace(/\{name\}/g, name || 'العميل');
+    if (btn) { btn.disabled=true; btn.textContent='...جارٍ الإرسال'; }
+    if (res) res.style.display='none';
+
+    try {
+      var smsCfg = (typeof ramzGetIntegrationSettings==='function') ? ramzGetIntegrationSettings('sms') : {};
+      var endpoint = smsCfg.endpoint || 'https://ramz-taqnyat-api.afayashi.workers.dev/sms/send';
+      var r = await fetch(endpoint, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ recipients:[mobile], body:text, sender: smsCfg.sender||'RamzProp' })
+      });
+      var json = await r.json().catch(function(){return{};});
+      var ok = r.ok && (json.code==='success'||json.success||json.msgId||json.messageId||json.statusCode===0);
+      if (res) {
+        res.style.display='block';
+        res.className='al '+(ok?'s':'e');
+        res.textContent = ok ? '✅ تم الإرسال بنجاح إلى '+phone : '❌ فشل الإرسال: '+(json.message||json.error||'خطأ غير معروف');
+      }
+      if(typeof notify==='function') notify(ok?'تم الإرسال بنجاح':'فشل الإرسال', ok?'success':'error');
+    } catch(e) {
+      if (res) { res.style.display='block'; res.className='al e'; res.textContent='❌ خطأ: '+e.message; }
+      if(typeof notify==='function') notify('خطأ في الاتصال','error');
+    } finally {
+      if (btn) { btn.disabled=false; btn.textContent='📤 إرسال الرسالة'; }
+    }
+  };
+
+  // حقن زر "رسالة فردية" في صفحة إشعارات SMS بعد تحميلها
+  function injectSmsButton() {
+    // ابحث عن كارت "إرسال رسالة جديدة" وأضف بجانبه زر رسالة فردية
+    var smsPage = document.querySelector('.sms-page, [data-sms-page], #p-sms, #p-sms-dashboard');
+    // بديل: ابحث عن الـ heading "إرسال رسالة جديدة"
+    var headings = document.querySelectorAll('h3, h4, .card-title, .ch .ct');
+    headings.forEach(function(h) {
+      if (h.textContent.trim().includes('إرسال رسالة جديدة') && !h.dataset.smsInjected) {
+        h.dataset.smsInjected = '1';
+        var btn = document.createElement('button');
+        btn.className = 'btn sm pr';
+        btn.style.cssText = 'margin-right:8px;font-size:12px';
+        btn.textContent = '📩 رسالة فردية';
+        btn.onclick = function() { window.ramzOpenSmsSingle(); };
+        h.parentNode.style.display = 'flex';
+        h.parentNode.style.alignItems = 'center';
+        h.parentNode.style.flexWrap = 'wrap';
+        h.parentNode.style.gap = '8px';
+        h.parentNode.appendChild(btn);
+      }
+    });
+  }
+
+  // مراقبة DOM لحقن الزر عند ظهور الصفحة
+  var obs = new MutationObserver(function() { injectSmsButton(); });
+  document.addEventListener('DOMContentLoaded', function() {
+    obs.observe(document.body, { childList:true, subtree:true });
+    injectSmsButton();
+  });
+
+})();
 (function(){
 
   // ملء رقم الجوال من المستأجر المختار
