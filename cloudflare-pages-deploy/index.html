@@ -1557,10 +1557,72 @@ window.nav=function(p){
 <!-- ════ EXPENSES ════ -->
 <div class="pc" id="p-expenses" style="display: none;">
   <div class="ph">
-    <div class="ph-t"><h2>المصروفات والتكاليف</h2></div>
-    <div class="ph-a"><button class="btn pr" onclick="openM('m-expense')">＋ مصروف</button></div>
+    <div class="ph-t"><h2>المصروفات والتكاليف</h2><p>تتبع وتحليل جميع مصروفات العقارات</p></div>
+    <div class="ph-a">
+      <button class="btn" onclick="exportCSV('expenses')">📥 CSV</button>
+      <button class="btn pr" onclick="openM('m-expense')">＋ مصروف جديد</button>
+    </div>
   </div>
-  <div class="card"><div class="ch"><div class="ct">💸 سجل المصروفات</div><span class="b bn" id="exp-total"></span></div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--rd)">
+      <div style="font-size:20px;font-weight:800;color:var(--rd)" id="exp-k-total">0</div>
+      <div style="font-size:11px;color:var(--t3)">إجمالي المصروفات</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--or)">
+      <div style="font-size:20px;font-weight:800;color:var(--or)" id="exp-k-month">0</div>
+      <div style="font-size:11px;color:var(--t3)">هذا الشهر</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--n)">
+      <div style="font-size:20px;font-weight:800;color:var(--n)" id="exp-k-maint">0</div>
+      <div style="font-size:11px;color:var(--t3)">صيانة</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--pu)">
+      <div style="font-size:20px;font-weight:800;color:var(--pu)" id="exp-k-ops">0</div>
+      <div style="font-size:11px;color:var(--t3)">تشغيل</div>
+    </div>
+  </div>
+
+  <!-- فلاتر -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="cb" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div class="fg" style="flex:1;min-width:120px"><label class="fl">الفئة</label>
+        <select class="fi" id="exp-cat-filter" onchange="renderExpenses()">
+          <option value="">كل الفئات</option>
+          <option value="maintenance">صيانة</option>
+          <option value="operations">تشغيل</option>
+          <option value="utilities">مرافق</option>
+          <option value="management">إدارة</option>
+          <option value="insurance">تأمين</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+      <div class="fg" style="flex:1;min-width:120px"><label class="fl">العقار</label>
+        <select class="fi" id="exp-prop-filter" onchange="renderExpenses()"><option value="">كل العقارات</option></select>
+      </div>
+      <div class="fg" style="flex:1;min-width:110px"><label class="fl">من</label><input class="fi" id="exp-date-from" type="date" onchange="renderExpenses()"></div>
+      <div class="fg" style="flex:1;min-width:110px"><label class="fl">إلى</label><input class="fi" id="exp-date-to" type="date" onchange="renderExpenses()"></div>
+    </div>
+  </div>
+
+  <!-- تحليل + جدول -->
+  <div class="g2" style="margin-bottom:12px">
+    <div class="card">
+      <div class="ch"><div class="ct">📊 توزيع المصروفات حسب الفئة</div></div>
+      <div class="cb" id="exp-cat-chart" style="min-height:160px"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">🏢 أعلى العقارات مصروفاً</div></div>
+      <div class="cb" id="exp-prop-chart" style="min-height:160px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch">
+      <div class="ct">💸 سجل المصروفات</div>
+      <span class="b bn" id="exp-total"></span>
+    </div>
     <div class="cb0" id="exp-tbl"></div>
   </div>
 </div>
@@ -1568,13 +1630,60 @@ window.nav=function(p){
 <!-- ════ ACCOUNTING ════ -->
 <div class="pc" id="p-accounting" style="display: none;">
   <div class="ph">
-    <div class="ph-t"><h2>المحاسبة والميزانية</h2><p>قائمة الدخل وتحليل الربحية</p></div>
-    <div class="ph-a"><button class="btn pr" onclick="genOwnerReport()">📊 تقرير PDF</button></div>
+    <div class="ph-t"><h2>المحاسبة والميزانية</h2><p>قائمة الدخل وتحليل الربحية والمقارنة الشهرية</p></div>
+    <div class="ph-a">
+      <button class="btn" onclick="exportCSV('invoices')">📥 CSV</button>
+      <button class="btn" onclick="nav('expenses')">💸 المصروفات</button>
+      <button class="btn pr" onclick="genOwnerReport()">📊 تقرير PDF</button>
+    </div>
   </div>
+
+  <!-- فلاتر الفترة -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="cb" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div class="fg" style="flex:1;min-width:130px"><label class="fl">من</label><input class="fi" id="ac-from" type="date"></div>
+      <div class="fg" style="flex:1;min-width:130px"><label class="fl">إلى</label><input class="fi" id="ac-to" type="date"></div>
+      <div class="fg" style="flex:1;min-width:130px"><label class="fl">العقار</label><select class="fi" id="ac-prop-filter"><option value="">كل العقارات</option></select></div>
+      <div class="fg" style="flex:1;min-width:130px"><label class="fl">المالك</label><select class="fi" id="ac-owner-filter"><option value="">كل الملاك</option></select></div>
+      <button class="btn pr" onclick="renderAccountingPage()" style="margin-top:18px">تطبيق</button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
   <div class="kg kg5" id="ac-kpis"></div>
+
+  <!-- بطاقات ملخص -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px" id="ac-summary-cards"></div>
+
+  <!-- الجداول والرسوم -->
   <div class="g2">
-    <div class="card"><div class="ch"><div class="ct">📊 قائمة الدخل</div></div><div class="cb" id="ac-income"></div></div>
-    <div class="card"><div class="ch"><div class="ct">📈 الأداء الشهري</div></div><div class="cb" id="ac-chart"></div></div>
+    <div class="card">
+      <div class="ch">
+        <div class="ct">📊 قائمة الدخل والمصروفات</div>
+        <div class="tabs" style="margin:0">
+          <button class="tbt active" id="ac-tab-income" onclick="acTab('income',this)">الإيرادات</button>
+          <button class="tbt" id="ac-tab-expense" onclick="acTab('expense',this)">المصروفات</button>
+          <button class="tbt" id="ac-tab-net" onclick="acTab('net',this)">الصافي</button>
+        </div>
+      </div>
+      <div class="cb0" id="ac-income"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">📈 الأداء الشهري</div><span class="b bn" id="ac-trend-badge"></span></div>
+      <div class="cb" id="ac-chart"></div>
+    </div>
+  </div>
+
+  <!-- مصروفات حسب الفئة -->
+  <div class="g2" style="margin-top:12px">
+    <div class="card">
+      <div class="ch"><div class="ct">💸 المصروفات حسب الفئة</div></div>
+      <div class="cb" id="ac-expense-breakdown"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="ct">🏢 الإيرادات حسب العقار</div></div>
+      <div class="cb0" id="ac-prop-income"></div>
+    </div>
   </div>
 </div>
 
@@ -1615,10 +1724,61 @@ window.nav=function(p){
 <!-- ════ INSPECTIONS ════ -->
 <div class="pc" id="p-inspections" style="display: none;">
   <div class="ph">
-    <div class="ph-t"><h2>التفتيش والمعاينة</h2></div>
-    <div class="ph-a"><button class="btn" onclick="openTemplatesHub('maintenance')">📄 نموذج معاينة</button><button class="btn pr" onclick="openM('m-inspect')">＋ معاينة جديدة</button></div>
+    <div class="ph-t"><h2>التفتيش والمعاينة</h2><p>معاينات الاستلام والتسليم وجولات التفتيش الدورية</p></div>
+    <div class="ph-a">
+      <button class="btn" onclick="exportCSV('inspections')">📥 CSV</button>
+      <button class="btn" onclick="openTemplatesHub('maintenance')">📄 نموذج معاينة</button>
+      <button class="btn pr" onclick="openM('m-inspect')">＋ معاينة جديدة</button>
+    </div>
   </div>
-  <div class="card"><div class="ch"><div class="ct">🔍 سجل المعاينات</div></div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px">
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--n)">
+      <div style="font-size:22px;font-weight:800;color:var(--n)" id="insp-k-total">0</div>
+      <div style="font-size:11px;color:var(--t3)">إجمالي المعاينات</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--or)">
+      <div style="font-size:22px;font-weight:800;color:var(--or)" id="insp-k-pending">0</div>
+      <div style="font-size:11px;color:var(--t3)">⏳ مجدولة</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--gr)">
+      <div style="font-size:22px;font-weight:800;color:var(--gr)" id="insp-k-done">0</div>
+      <div style="font-size:11px;color:var(--t3)">✅ مكتملة</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;border-right:3px solid var(--pu)">
+      <div style="font-size:22px;font-weight:800;color:var(--pu)" id="insp-k-issues">0</div>
+      <div style="font-size:11px;color:var(--t3)">⚠️ ملاحظات مفتوحة</div>
+    </div>
+  </div>
+
+  <!-- فلاتر -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <select class="fi" id="insp-type-filter" onchange="renderInspections()" style="max-width:160px">
+      <option value="">كل الأنواع</option>
+      <option value="move_in">استلام وحدة</option>
+      <option value="move_out">تسليم وحدة</option>
+      <option value="periodic">دوري</option>
+      <option value="emergency">طارئ</option>
+    </select>
+    <select class="fi" id="insp-status-filter" onchange="renderInspections()" style="max-width:160px">
+      <option value="">كل الحالات</option>
+      <option value="scheduled">مجدولة</option>
+      <option value="in_progress">جارية</option>
+      <option value="completed">مكتملة</option>
+      <option value="cancelled">ملغاة</option>
+    </select>
+    <select class="fi" id="insp-prop-filter" onchange="renderInspections()" style="max-width:160px">
+      <option value="">كل العقارات</option>
+    </select>
+    <input class="fi" id="insp-search" placeholder="بحث..." oninput="renderInspections()" style="max-width:180px">
+  </div>
+
+  <div class="card">
+    <div class="ch">
+      <div class="ct">🔍 سجل المعاينات</div>
+      <span class="b bn" id="insp-count">0</span>
+    </div>
     <div class="cb0" id="insp-tbl"></div>
   </div>
 </div>
@@ -1777,13 +1937,47 @@ window.nav=function(p){
 <!-- ════ NOTIFICATIONS ════ -->
 <div class="pc" id="p-notifications" style="display: none;">
   <div class="ph">
-    <div class="ph-t"><h2>التنبيهات والإشعارات</h2></div>
-    <div class="ph-a"><button class="btn" onclick="markAllRead()">✓ قراءة الكل</button></div>
+    <div class="ph-t"><h2>التنبيهات والإشعارات</h2><p>مركز التنبيهات التشغيلية والمستحقات والإجراءات المطلوبة</p></div>
+    <div class="ph-a">
+      <button class="btn" onclick="markAllRead()">✓ قراءة الكل</button>
+      <button class="btn pr" onclick="ramzOpenSmsSingle()">📩 رسالة فردية</button>
+    </div>
   </div>
-  <div class="al i" style="margin-bottom:12px">
-    سياسة الإرسال: لا يتم إرسال إشعارات الفواتير أو العقود للعملاء إذا كان تاريخ الاستحقاق أو نهاية العقد قبل تاريخ اليوم. يسمح فقط بإشعارات اليوم والتواريخ القادمة.
+
+  <!-- ملخص سريع -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px" id="notif-summary">
+    <div class="card" style="text-align:center;padding:14px;cursor:pointer;border-right:3px solid var(--rd)" onclick="filterNotifs('urgent')">
+      <div style="font-size:22px;font-weight:800;color:var(--rd)" id="notif-cnt-urgent">—</div>
+      <div style="font-size:11px;color:var(--t3)">🔴 عاجل</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;cursor:pointer;border-right:3px solid var(--or)" onclick="filterNotifs('warning')">
+      <div style="font-size:22px;font-weight:800;color:var(--or)" id="notif-cnt-warning">—</div>
+      <div style="font-size:11px;color:var(--t3)">🟡 تحذير</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;cursor:pointer;border-right:3px solid var(--n)" onclick="filterNotifs('info')">
+      <div style="font-size:22px;font-weight:800;color:var(--n)" id="notif-cnt-info">—</div>
+      <div style="font-size:11px;color:var(--t3)">🔵 معلومة</div>
+    </div>
+    <div class="card" style="text-align:center;padding:14px;cursor:pointer;border-right:3px solid var(--gr)" onclick="filterNotifs('all')">
+      <div style="font-size:22px;font-weight:800;color:var(--gr)" id="notif-cnt-all">—</div>
+      <div style="font-size:11px;color:var(--t3)">📋 الكل</div>
+    </div>
   </div>
-  <div class="card"><div class="cb" id="notif-list"></div></div>
+
+  <!-- فلاتر -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="notif-filter-row">
+    <button class="btn sm active" id="nf-all"     onclick="filterNotifs('all')">الكل</button>
+    <button class="btn sm" id="nf-invoices"  onclick="filterNotifs('invoices')">💳 فواتير</button>
+    <button class="btn sm" id="nf-contracts" onclick="filterNotifs('contracts')">📋 عقود</button>
+    <button class="btn sm" id="nf-maintenance" onclick="filterNotifs('maintenance')">🔧 صيانة</button>
+    <button class="btn sm" id="nf-deeds"     onclick="filterNotifs('deeds')">📜 صكوك</button>
+  </div>
+
+  <div class="al i" style="margin-bottom:12px;font-size:11px">
+    ⚠️ سياسة الإرسال: يُسمح فقط بإشعارات اليوم والتواريخ القادمة — لا إرسال للتواريخ المنتهية.
+  </div>
+
+  <div class="card"><div class="cb" id="notif-list" style="min-height:120px"></div></div>
 </div>
 
 
@@ -10171,6 +10365,99 @@ document.addEventListener('DOMContentLoaded', ramzInitAuthRoles);
 document.getElementById('auth-form')?.addEventListener('submit', ramzHandleLogin);
 document.addEventListener('DOMContentLoaded', function() { ramzSetAuthState(ramzSessionValid()); ramzBootAfterAuth(); });
 ramzSetAuthState(ramzSessionValid());
+
+// ─── وظائف الصفحات المطوّرة ──────────────────────────
+
+// ── التنبيهات: فلترة ──
+window.filterNotifs = function(type) {
+  document.querySelectorAll('#notif-filter-row .btn').forEach(function(b){ b.classList.remove('active'); });
+  var btn = document.getElementById('nf-' + type) || document.getElementById('nf-all');
+  if (btn) btn.classList.add('active');
+  var items = document.querySelectorAll('#notif-list .notif-item');
+  items.forEach(function(item) {
+    if (type === 'all') { item.style.display = ''; return; }
+    item.style.display = (item.dataset.type === type) ? '' : 'none';
+  });
+  ramzUpdateNotifSummary();
+};
+
+window.ramzUpdateNotifSummary = function() {
+  var items = document.querySelectorAll('#notif-list .notif-item');
+  var counts = { urgent:0, warning:0, info:0, all:items.length };
+  items.forEach(function(item) {
+    var t = item.dataset.severity || 'info';
+    if (counts[t] !== undefined) counts[t]++;
+  });
+  ['urgent','warning','info','all'].forEach(function(k) {
+    var el = document.getElementById('notif-cnt-' + k);
+    if (el) el.textContent = counts[k];
+  });
+};
+
+// ── المحاسبة: تبويبات ──
+window.acTab = function(tab, btn) {
+  document.querySelectorAll('[id^="ac-tab-"]').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  if (typeof renderAccountingPage === 'function') renderAccountingPage(tab);
+};
+
+// ── تهيئة الفلاتر ──
+function initExpensesFilters() {
+  var sel = document.getElementById('exp-prop-filter');
+  if (!sel || sel.options.length > 1) return;
+  ((window.data && window.data.properties) || []).forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.id || p.name; o.textContent = p.name || 'عقار';
+    sel.appendChild(o);
+  });
+}
+
+function initInspectionFilters() {
+  var sel = document.getElementById('insp-prop-filter');
+  if (!sel || sel.options.length > 1) return;
+  ((window.data && window.data.properties) || []).forEach(function(p) {
+    var o = document.createElement('option');
+    o.value = p.id || p.name; o.textContent = p.name || 'عقار';
+    sel.appendChild(o);
+  });
+}
+
+function initAccountingFilters() {
+  var now = new Date();
+  var from = document.getElementById('ac-from'), to = document.getElementById('ac-to');
+  if (from && !from.value) from.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  if (to   && !to.value)   to.value   = now.toISOString().slice(0,10);
+  var propSel = document.getElementById('ac-prop-filter');
+  if (propSel && propSel.options.length <= 1) {
+    ((window.data && window.data.properties) || []).forEach(function(p) {
+      var o=document.createElement('option'); o.value=p.id||p.name; o.textContent=p.name||'عقار'; propSel.appendChild(o);
+    });
+  }
+  var ownerSel = document.getElementById('ac-owner-filter');
+  if (ownerSel && ownerSel.options.length <= 1) {
+    var seen = new Set();
+    ((window.data && window.data.properties)||[]).forEach(function(p){
+      if (p.owner_name && !seen.has(p.owner_name)) {
+        seen.add(p.owner_name);
+        var o=document.createElement('option'); o.value=p.owner_name; o.textContent=p.owner_name; ownerSel.appendChild(o);
+      }
+    });
+  }
+}
+
+// ── ربط التهيئة بالتنقل ──
+(function(){
+  var _orig = window.nav;
+  window.nav = function(page) {
+    if (typeof _orig === 'function') _orig(page);
+    setTimeout(function() {
+      if (page === 'expenses')     initExpensesFilters();
+      if (page === 'inspections')  initInspectionFilters();
+      if (page === 'accounting')   { initAccountingFilters(); }
+      if (page === 'notifications') ramzUpdateNotifSummary();
+    }, 250);
+  };
+})();
 
 // ─── موديال رسالة SMS فردية (يظهر من أي صفحة) ──────
 (function(){
